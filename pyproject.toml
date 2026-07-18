@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "betting-portfolio-system"
+version = "0.1.0"
+description = "Abstract betting portfolio optimization system — game-agnostic"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "ScuraUrsa", email = "f.j.kazmierczak@gmail.com"}
+]
+keywords = ["betting", "kelly-criterion", "monte-carlo", "portfolio-optimization", "risk-management"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "pandas>=2.1",
+    "streamlit>=1.30",
+    "plotly>=5.18",
+    "pytest>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=4.0",
+    "hypothesis>=6.90",
+    "ruff>=0.3",
+]
+
+[tool.setuptools.packages.find]
+include = ["core*", "games*", "ui*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

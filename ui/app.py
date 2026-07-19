@@ -12,14 +12,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Import all page modules
+from ui.pages import tutorial, roulette, poker, portfolio, history, settings
+
 # Navigation
-pages = {
-    "🎓 Tutorial": "ui/pages/tutorial.py",
-    "🎰 Roulette": "ui/pages/roulette.py",
-    "🃏 Poker": "ui/pages/poker.py",
-    "📊 Portfolio": "ui/pages/portfolio.py",
-    "📈 History & Signals": "ui/pages/history.py",
-    "⚙️ Settings": "ui/pages/settings.py",
+PAGES = {
+    "🎓 Tutorial": tutorial,
+    "🎰 Roulette": roulette,
+    "🃏 Poker": poker,
+    "📊 Portfolio": portfolio,
+    "📈 History & Signals": history,
+    "⚙️ Settings": settings,
 }
 
 
@@ -34,7 +37,7 @@ def main():
     st.sidebar.metric("Bankroll", f"{st.session_state.bankroll:,.0f} zł")
 
     # Navigation
-    page = st.sidebar.radio("Navigation", list(pages.keys()))
+    page_name = st.sidebar.radio("Navigation", list(PAGES.keys()))
 
     st.sidebar.markdown("---")
     st.sidebar.caption(
@@ -43,8 +46,8 @@ def main():
     )
 
     # Run the selected page
-    page_path = pages[page]
-    exec(open(page_path).read())
+    page_module = PAGES[page_name]
+    page_module.show()
 
 
 if __name__ == "__main__":

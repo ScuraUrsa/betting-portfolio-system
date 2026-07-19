@@ -55,10 +55,15 @@ class TestUIModuleStructure:
         assert hasattr(app, "traceback")
 
     def test_app_pages_dict_complete(self):
-        """App must register all 6 pages via radio navigation."""
-        from ui.app import page
-        # page is a streamlit radio widget — verify it exists
-        assert page is not None
+        """App must register all 6 pages via NAV_KEYS."""
+        from ui.app import NAV_KEYS
+        assert len(NAV_KEYS) == 6
+        assert "tutorial" in NAV_KEYS
+        assert "roulette" in NAV_KEYS
+        assert "poker" in NAV_KEYS
+        assert "portfolio" in NAV_KEYS
+        assert "history" in NAV_KEYS
+        assert "settings" in NAV_KEYS
 
     def test_page_files_exist(self):
         """All page files must exist on disk."""

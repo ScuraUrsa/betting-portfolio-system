@@ -37,7 +37,7 @@ def show():
             ext = extremum_results.get(vr.bet_id)
             rows.append({
                 "Hand": vr.bet_name,
-                "Probability": f"{vr.probability:.6f}",
+                "Probability": f"{vr.probability*100:.4f}%",
                 "Odds": f"{vr.odds:.1f}",
                 "EV": f"{vr.ev:+.4f}",
                 "Kelly 1/4": f"{vr.kelly_quarter:.4f}",
@@ -55,7 +55,7 @@ def show():
         fig.add_trace(go.Bar(
             x=names, y=probs,
             marker_color="steelblue",
-            text=[f"{p:.4f}" for p in probs],
+            text=[f"{p*100:.4f}%" for p in probs],
             textposition="outside",
         ))
         fig.update_layout(

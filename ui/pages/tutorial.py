@@ -178,7 +178,7 @@ def _step_roulette_model():
     ev = game.expected_value(bet_id)
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Probability", f"{bet.probability:.4f}")
+    col1.metric("Probability", f"{bet.probability*100:.2f}%")
     col2.metric("Odds", f"{bet.odds:.1f}:1")
     col3.metric("EV", f"{ev:+.4f}")
 
@@ -206,7 +206,7 @@ def _step_poker_model():
     fig.add_trace(go.Bar(
         x=names, y=probs,
         marker_color="steelblue",
-        text=[f"{p:.4f}" for p in probs],
+        text=[f"{p*100:.4f}%" for p in probs],
         textposition="outside",
     ))
     fig.update_layout(height=350, yaxis_title="Probability")

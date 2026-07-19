@@ -45,7 +45,7 @@ def show():
             rows.append({
                 "Bet": vr.bet_name,
                 "ID": vr.bet_id,
-                "Probability": f"{vr.probability:.4f}",
+                "Probability": f"{vr.probability*100:.2f}%",
                 "Odds": f"{vr.odds:.1f}",
                 "EV": f"{vr.ev:+.4f}",
                 "Kelly 1/4": f"{vr.kelly_quarter:.4f}",

@@ -27,6 +27,9 @@ from games.roulette import european_roulette
 from games.poker import texas_holdem_hand_rankings
 
 
+from core.i18n import Translator
+
+
 # Tutorial steps
 STEPS = [
     "1. Welcome & Concepts",
@@ -48,8 +51,11 @@ STEPS = [
 
 
 def show():
-    st.title("🎓 Interactive Tutorial")
-    st.caption("Step-by-step walkthrough of every feature in the Betting Portfolio System")
+    t = Translator()
+    t.set_lang(st.session_state.get("lang", "en"))
+
+    st.title(t.t("tutorial_title"))
+    st.caption(t.t("tutorial_subtitle"))
 
     # Progress
     if "tutorial_step" not in st.session_state:
@@ -58,7 +64,7 @@ def show():
     step = st.session_state.tutorial_step
 
     # Step navigation (in main area, not sidebar)
-    st.subheader("Tutorial Steps")
+    st.subheader(t.t("tutorial_steps_title"))
     cols = st.columns(len(STEPS))
     for i, name in enumerate(STEPS):
         if i == step:
@@ -72,11 +78,11 @@ def show():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← Previous", disabled=(step == 0)):
+        if st.button(t.t("tutorial_prev"), disabled=(step == 0)):
             st.session_state.tutorial_step = max(0, step - 1)
             st.rerun()
     with col2:
-        if st.button("Next →", disabled=(step == len(STEPS) - 1)):
+        if st.button(t.t("tutorial_next"), disabled=(step == len(STEPS) - 1)):
             st.session_state.tutorial_step = min(len(STEPS) - 1, step + 1)
             st.rerun()
 

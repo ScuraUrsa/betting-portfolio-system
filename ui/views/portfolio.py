@@ -12,15 +12,19 @@ from core.value import ValueEngine
 from core.portfolio import PortfolioEngine
 from core.monte_carlo import MonteCarloEngine
 from core.risk import RiskManager, RiskLimits
+from core.i18n import Translator
 
 
 def show():
-    st.title("📊 Portfolio Overview")
+    t = Translator()
+    t.set_lang(st.session_state.get("lang", "en"))
+
+    st.title(t.t("portfolio_title"))
 
     bankroll = st.session_state.bankroll
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Bankroll", f"{bankroll:,.0f} zł")
+    col1.metric(t.t("bankroll_label"), f"{bankroll:,.0f} zł")
     col2.metric("Max Exposure (50%)", f"{bankroll * 0.5:,.0f} zł")
     col3.metric("Max Per Bet (10%)", f"{bankroll * 0.1:,.0f} zł")
 
@@ -57,36 +61,35 @@ def show():
         if ext and ext.signal_level != "none":
             all_signals.append({
                 "Game": "Roulette",
-                "Bet": vr.bet_name,
-                "Signal": ext.signal_level,
-                "Direction": ext.direction,
-                "EI": f"{ext.extremum_index:+.3f}",
-                "Rec. Stake": f"{vr.recommended_stake_pct:.2%}",
+                t.t("rec_bet"): vr.bet_name,
+                t.t("rec_signal"): ext.signal_level,
+                t.t("rec_direction"): ext.direction,
+                t.t("metric_ei"): f"{ext.extremum_index:+.3f}",
+                t.t("rec_stake_pct"): f"{vr.recommended_stake_pct:.2%}",
             })
     for vr in p_val:
         ext = p_ext.get(vr.bet_id)
         if ext and ext.signal_level != "none":
             all_signals.append({
                 "Game": "Poker",
-                "Bet": vr.bet_name,
-                "Signal": ext.signal_level,
-                "Direction": ext.direction,
-                "EI": f"{ext.extremum_index:+.3f}",
-                "Rec. Stake": f"{vr.recommended_stake_pct:.2%}",
+                t.t("rec_bet"): vr.bet_name,
+                t.t("rec_signal"): ext.signal_level,
+                t.t("rec_direction"): ext.direction,
+                t.t("metric_ei"): f"{ext.extremum_index:+.3f}",
+                t.t("rec_stake_pct"): f"{vr.recommended_stake_pct:.2%}",
             })
 
     if all_signals:
         st.dataframe(all_signals, width='stretch', hide_index=True)
     else:
-        st.info("No active signals. Add some history data to detect patterns.")
+        st.info(t.t("no_signals"))
 
     st.markdown("---")
 
     # Combined portfolio optimization
-    st.subheader("📈 Combined Portfolio Optimization")
+    st.subheader(t.t("portfolio_allocation_title"))
 
     if st.button("Optimize Combined Portfolio", type="primary"):
-        # Combine all bets from both games
         from core.game import Game
         combined = Game(
             name="Combined Portfolio",
@@ -96,7 +99,6 @@ def show():
 
         allocation = portfolio.optimize(combined, combined_val)
 
-        # Show allocation
         st.write("### Recommended Allocation")
         alloc_rows = []
         for i, bid in enumerate(allocation.bet_ids):
@@ -104,19 +106,18 @@ def show():
                 game_name = "Roulette" if bid in [b.id for b in roulette.bets] else "Poker"
                 alloc_rows.append({
                     "Game": game_name,
-                    "Bet": bid,
-                    "Stake %": f"{allocation.stake_pcts[i]:.2%}",
-                    "Stake zł": f"{allocation.stakes[i]:.2f}",
+                    t.t("rec_bet"): bid,
+                    t.t("rec_stake_pct"): f"{allocation.stake_pcts[i]:.2%}",
+                    t.t("rec_stake_pln"): f"{allocation.stakes[i]:.2f}",
                 })
 
         if alloc_rows:
             st.dataframe(alloc_rows, width='stretch', hide_index=True)
             st.metric("Total Exposure", f"{allocation.total_exposure:.2%}")
-            st.metric("Expected Return", f"{allocation.expected_return:+.2f} zł")
+            st.metric(t.t("metric_expected_return"), f"{allocation.expected_return:+.2f} zł")
         else:
             st.info("No positive-EV bets found. Optimal allocation is 0.")
 
-        # Risk assessment
         risk_report = risk_mgr.assess(allocation, bankroll)
         if not risk_report.is_acceptable:
             st.warning("⚠️ Risk limits exceeded:")
@@ -128,9 +129,8 @@ def show():
     st.markdown("---")
 
     # Loss distribution summary
-    st.subheader("📉 Loss Distribution (Roulette)")
+    st.subheader(t.t("portfolio_loss_title"))
 
-    # Build win sets for roulette
     red_numbers = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
     win_sets = {}
     for b in roulette.bets:
@@ -170,9 +170,7 @@ def show():
     col3.metric("Expected", f"{loss_dist.expected_case:+.0f} zł")
     col4.metric("P(Profit)", f"{loss_dist.profit_probability:.1%}")
 
-    # Scenario chart
     profits = [s.profit for s in scenarios]
-    probs = [s.probability for s in scenarios]
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=[f"Scenario {s.scenario_id}" for s in scenarios],
@@ -186,5 +184,3 @@ def show():
         height=400,
     )
     st.plotly_chart(fig, width='stretch')
-
-

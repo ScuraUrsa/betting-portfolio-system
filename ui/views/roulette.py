@@ -16,9 +16,10 @@ from core.extremum import ExtremumEngine
 from core.value import ValueEngine
 from core.portfolio import PortfolioEngine
 from core.monte_carlo import MonteCarloEngine
+from core.i18n import Translator
 
 
-def _build_bet_rows(game, extremum, ve, bankroll):
+def _build_bet_rows(game, extremum, ve, bankroll, t):
     """Build recommendation rows for a set of bets."""
     ext_map = {r.bet_id: r for r in extremum.analyze_all(game)}
     vals = ve.analyze_all(game, ext_map)
@@ -27,42 +28,44 @@ def _build_bet_rows(game, extremum, ve, bankroll):
     for vr in vals:
         ext = ext_map.get(vr.bet_id)
         rows.append({
-            "Bet": vr.bet_name, "ID": vr.bet_id,
-            "Probability": f"{vr.probability*100:.2f}%",
-            "Odds": f"{vr.odds:.1f}", "EV": f"{vr.ev:+.4f}",
-            "Kelly 1/4": f"{vr.kelly_quarter:.4f}",
-            "Signal": ext.signal_level if ext else "none",
-            "Direction": ext.direction if ext else "neutral",
-            "Rec. Stake %": f"{vr.recommended_stake_pct:.2%}",
-            "Rec. Stake zł": f"{vr.recommended_stake_pct * bankroll:.2f}",
+            t.t("rec_bet"): vr.bet_name,
+            t.t("rec_id"): vr.bet_id,
+            t.t("rec_probability"): f"{vr.probability*100:.2f}%",
+            t.t("rec_odds"): f"{vr.odds:.1f}",
+            t.t("rec_ev"): f"{vr.ev:+.4f}",
+            t.t("rec_kelly"): f"{vr.kelly_quarter:.4f}",
+            t.t("rec_signal"): ext.signal_level if ext else "none",
+            t.t("rec_direction"): ext.direction if ext else "neutral",
+            t.t("rec_stake_pct"): f"{vr.recommended_stake_pct:.2%}",
+            t.t("rec_stake_pln"): f"{vr.recommended_stake_pct * bankroll:.2f}",
         })
 
     order = {"maximum": 0, "medium": 1, "entry_small": 2, "observation": 3, "none": 4}
-    rows.sort(key=lambda r: order.get(r["Signal"], 5))
+    rows.sort(key=lambda r: order.get(r[t.t("rec_signal")], 5))
     return rows
 
 
-def _render_recommendations_table(rows):
+def _render_recommendations_table(rows, t):
     """Render the recommendations dataframe with active signal count."""
     st.dataframe(rows, width='stretch', hide_index=True)
-    active = [r for r in rows if r["Signal"] != "none"]
+    active = [r for r in rows if r[t.t("rec_signal")] != "none"]
     if active:
-        st.success(f"🔔 {len(active)} bets with active signals")
+        st.success(t.t("active_signals_count", count=len(active)))
     else:
-        st.info("No significant signals detected")
+        st.info(t.t("no_signals"))
 
 
-def _render_signals_tab(game, extremum):
+def _render_signals_tab(game, extremum, t):
     """Render the Z-score / Extremum Index signals tab."""
-    st.subheader("Extremum Index by Bet")
-    sel = st.selectbox("Select bet", [b.id for b in game.bets], index=0)
+    st.subheader(t.t("roulette_signal_title"))
+    sel = st.selectbox(t.t("roulette_signal_select"), [b.id for b in game.bets], index=0)
     if sel:
         r = extremum.analyze(game, sel)
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("EI", f"{r.extremum_index:.3f}")
-        c2.metric("Max Z", f"{r.max_z_score:.3f}")
-        c3.metric("Direction", r.direction)
-        c4.metric("Signal", r.signal_level)
+        c1.metric(t.t("metric_ei"), f"{r.extremum_index:.3f}")
+        c2.metric(t.t("metric_max_z"), f"{r.max_z_score:.3f}")
+        c3.metric(t.t("metric_direction"), r.direction)
+        c4.metric(t.t("metric_signal"), r.signal_level)
 
         if r.window_stats:
             ws_list = [ws for ws in r.window_stats if ws.n_draws > 0]
@@ -75,16 +78,16 @@ def _render_signals_tab(game, extremum):
             ))
             for y in (2, -2, 3, -3):
                 fig.add_hline(y=y, line_dash="dash", line_color="orange" if abs(y) == 2 else "red")
-            fig.update_layout(title=f"Z-Score by Window — {sel}", height=400)
+            fig.update_layout(title=t.t("zscore_chart_title", bet_id=sel), height=400)
             st.plotly_chart(fig, width='stretch')
 
 
-def _render_monte_carlo_tab(game, extremum, ve, portfolio, mc):
+def _render_monte_carlo_tab(game, extremum, ve, portfolio, mc, t):
     """Render the Monte Carlo simulation tab."""
-    st.subheader("Monte Carlo Simulation")
-    n = st.slider("Simulations", 1000, 100000, 10000, step=1000)
-    if st.button("Run Monte Carlo", type="primary"):
-        with st.spinner(f"Running {n:,} simulations..."):
+    st.subheader(t.t("roulette_monte_carlo_title"))
+    n = st.slider(t.t("roulette_monte_carlo_slider"), 1000, 100000, 10000, step=1000)
+    if st.button(t.t("roulette_monte_carlo_button"), type="primary"):
+        with st.spinner(t.t("roulette_monte_carlo_running", n=n)):
             ext_map = {r.bet_id: r for r in extremum.analyze_all(game)}
             vals = ve.analyze_all(game, ext_map)
             alloc = portfolio.optimize(game, vals)
@@ -119,39 +122,40 @@ def _render_monte_carlo_tab(game, extremum, ve, portfolio, mc):
             )
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Expected Return", f"{res.expected_return:+.2f} zł")
-        c2.metric("Std Dev", f"{res.std_return:.2f} zł")
-        c3.metric("Max Drawdown", f"{res.max_drawdown:.2f} zł")
-        c4.metric("Ruin Prob", f"{res.ruin_probability:.2%}")
+        c1.metric(t.t("metric_expected_return"), f"{res.expected_return:+.2f} zł")
+        c2.metric(t.t("metric_std_dev"), f"{res.std_return:.2f} zł")
+        c3.metric(t.t("metric_max_drawdown"), f"{res.max_drawdown:.2f} zł")
+        c4.metric(t.t("metric_ruin_prob"), f"{res.ruin_probability:.2%}")
         c5, c6 = st.columns(2)
-        c5.metric("VaR 95%", f"{res.var_95:.2f} zł")
-        c6.metric("CVaR 95%", f"{res.cvar_95:.2f} zł")
+        c5.metric(t.t("metric_var_95"), f"{res.var_95:.2f} zł")
+        c6.metric(t.t("metric_cvar_95"), f"{res.cvar_95:.2f} zł")
 
         fig = go.Figure(go.Histogram(
             x=res.profit_distribution, nbinsx=100,
             marker_color="steelblue", opacity=0.7,
         ))
-        fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Break-even")
+        fig.add_vline(x=0, line_dash="dash", line_color="red",
+                      annotation_text=t.t("mc_break_even"))
         fig.add_vline(
             x=res.expected_return, line_dash="dash", line_color="green",
-            annotation_text=f"Mean: {res.expected_return:+.1f}",
+            annotation_text=t.t("mc_mean", value=res.expected_return),
         )
-        fig.update_layout(title=f"Profit Distribution ({n:,} simulations)", height=400)
+        fig.update_layout(title=t.t("mc_profit_distribution", n=n), height=400)
         st.plotly_chart(fig, width='stretch')
 
 
-def _render_wheel_tab():
+def _render_wheel_tab(t):
     """Render the interactive wheel visualization tab."""
-    st.subheader("🎡 European Roulette Wheel")
-    st.caption("Hover over any number to see all properties, neighbors, and opposite numbers")
+    st.subheader(t.t("roulette_wheel_title"))
+    st.caption(t.t("roulette_wheel_hint"))
 
     fig = build_wheel_figure(height=550)
     st.plotly_chart(fig, width='stretch')
 
     # ── Number detail lookup ─────────────────────────────────────────
     st.markdown("---")
-    st.subheader("🔍 Number Lookup")
-    lookup = st.number_input("Enter a number (0-36)", min_value=0, max_value=36, value=17, step=1)
+    st.subheader(t.t("roulette_lookup_title"))
+    lookup = st.number_input(t.t("roulette_lookup_label"), min_value=0, max_value=36, value=17, step=1)
 
     if lookup is not None:
         n = int(lookup)
@@ -159,43 +163,50 @@ def _render_wheel_tab():
         neighbors = get_neighbors(n, 2)
         opp = get_opposite(n)
 
+        # Map property values to translated strings
+        color_map = {"green": t.t("prop_green"), "red": t.t("prop_red"), "black": t.t("prop_black")}
+        parity_map = {"even": t.t("prop_even"), "odd": t.t("prop_odd"), "—": t.t("prop_na")}
+        half_map = {"low (1-18)": t.t("prop_low"), "high (19-36)": t.t("prop_high"), "—": t.t("prop_na")}
+        dozen_map = {"1st 12": t.t("prop_dozen_1"), "2nd 12": t.t("prop_dozen_2"), "3rd 12": t.t("prop_dozen_3"), "—": t.t("prop_na")}
+        col_map = {"Column 1": t.t("prop_col_1"), "Column 2": t.t("prop_col_2"), "Column 3": t.t("prop_col_3"), "—": t.t("prop_na")}
+        section_map = {"Jeu 0": t.t("prop_jeu0"), "Voisins du Zéro": t.t("prop_voisins"), "Tiers du Cylindre": t.t("prop_tiers"), "Orphelins": t.t("prop_orphelins"), "—": t.t("prop_na")}
+
         cols = st.columns(4)
-        cols[0].metric("Color", c.title())
-        cols[1].metric("Parity", get_parity(n).title())
-        cols[2].metric("Half", get_half(n))
-        cols[3].metric("Dozen", get_dozen(n))
+        cols[0].metric(t.t("metric_color"), color_map.get(c, c))
+        cols[1].metric(t.t("metric_parity"), parity_map.get(get_parity(n), get_parity(n)))
+        cols[2].metric(t.t("metric_half"), half_map.get(get_half(n), get_half(n)))
+        cols[3].metric(t.t("metric_dozen"), dozen_map.get(get_dozen(n), get_dozen(n)))
 
         cols2 = st.columns(3)
-        cols2[0].metric("Column", get_column(n))
-        cols2[1].metric("Section", get_section(n))
-        cols2[2].metric("Wheel Position", f"#{WHEEL_ORDER.index(n) + 1}/37")
+        cols2[0].metric(t.t("metric_column"), col_map.get(get_column(n), get_column(n)))
+        cols2[1].metric(t.t("metric_section"), section_map.get(get_section(n), get_section(n)))
+        cols2[2].metric(t.t("metric_wheel_pos"), f"#{WHEEL_ORDER.index(n) + 1}/37")
 
-        st.markdown("**← Neighbors (2 each side) →**")
+        st.markdown(f"**{t.t('neighbors_label')}**")
         st.markdown(
             f"`{neighbors[0]}` `{neighbors[1]}` "
             f"**← `{n}` →** "
             f"`{neighbors[2]}` `{neighbors[3]}`"
         )
 
-        st.markdown(f"**Opposite (positions +18/+19):** `{opp[0]}`, `{opp[1]}`")
+        st.markdown(f"**{t.t('opposite_label')}:** `{opp[0]}`, `{opp[1]}`")
 
 
-def _render_french_bets_tab():
+def _render_french_bets_tab(t):
     """Render the French announced bets tab."""
-    st.subheader("🇫🇷 French Announced Bets (Les Annonces)")
-    st.caption("Traditional French roulette call bets covering specific wheel sectors")
+    st.subheader(t.t("roulette_french_title"))
+    st.caption(t.t("roulette_french_hint"))
 
     sections = {
-        "🎯 Jeu 0 (Zero Game)": JEU_0,
-        "🟢 Voisins du Zéro (Neighbors of Zero)": VOISINS_DU_ZERO,
-        "🔵 Tiers du Cylindre (Thirds of the Wheel)": TIERS_DU_CYLINDRE,
-        "🟠 Orphelins (Orphans)": ORPHELINS,
+        t.t("roulette_french_jeu0"): JEU_0,
+        t.t("roulette_french_voisins"): VOISINS_DU_ZERO,
+        t.t("roulette_french_tiers"): TIERS_DU_CYLINDRE,
+        t.t("roulette_french_orphelins"): ORPHELINS,
     }
 
     for name, numbers in sections.items():
-        with st.expander(f"{name} — {len(numbers)} numbers", expanded=False):
+        with st.expander(f"{name} — {t.t('french_numbers_count', count=len(numbers))}", expanded=False):
             sorted_nums = sorted(numbers)
-            # Show as colored chips
             chips_html = ""
             for n in sorted_nums:
                 c = get_color(n)
@@ -208,18 +219,17 @@ def _render_french_bets_tab():
                 )
             st.markdown(f'<div style="line-height:2.5">{chips_html}</div>', unsafe_allow_html=True)
 
-            # Show wheel position context
-            st.caption(
-                f"These numbers are adjacent on the wheel. "
-                f"Bet covers {len(numbers)}/{37} = {len(numbers)/37*100:.1f}% of the wheel."
-            )
+            st.caption(t.t("roulette_french_coverage", covered=len(numbers), total=37, pct=len(numbers)/37*100))
 
 
 def show():
     if "bankroll" not in st.session_state:
         st.session_state.bankroll = 1000.0
 
-    st.title("🎰 Roulette — European (37 fields)")
+    t = Translator()
+    t.set_lang(st.session_state.get("lang", "en"))
+
+    st.title(t.t("roulette_title"))
 
     game = european_roulette()
     history = HistoryEngine("data/roulette_history.db")
@@ -230,36 +240,39 @@ def show():
 
     # ── Main tabs ─────────────────────────────────────────────────────
     tab_wheel, tab_numbers, tab_bets, tab_french, tab_signals, tab_mc = st.tabs([
-        "🎡 Wheel", "🔢 Numbers", "🎯 Other Bets", "🇫🇷 French Bets",
-        "📈 Signals", "🎲 Monte Carlo",
+        t.t("roulette_tab_wheel"),
+        t.t("roulette_tab_numbers"),
+        t.t("roulette_tab_other"),
+        t.t("roulette_tab_french"),
+        t.t("roulette_tab_signals"),
+        t.t("roulette_tab_monte_carlo"),
     ])
 
     with tab_wheel:
-        _render_wheel_tab()
+        _render_wheel_tab(t)
 
     with tab_numbers:
-        st.subheader("🔢 Straight-Up Numbers (0-36)")
-        st.caption("Bet on individual numbers — each pays 36:1")
+        st.subheader(t.t("roulette_numbers_title"))
+        st.caption(t.t("roulette_numbers_hint"))
 
-        # Filter game to only straight-up bets
         num_game = type(game)("Roulette Numbers", [b for b in game.bets if b.id.startswith("num_")])
-        rows = _build_bet_rows(num_game, extremum, ve, st.session_state.bankroll)
-        _render_recommendations_table(rows)
+        rows = _build_bet_rows(num_game, extremum, ve, st.session_state.bankroll, t)
+        _render_recommendations_table(rows, t)
 
     with tab_bets:
-        st.subheader("🎯 Outside & Group Bets")
-        st.caption("Red/Black, Even/Odd, Low/High, Dozens, Columns")
+        st.subheader(t.t("roulette_other_title"))
+        st.caption(t.t("roulette_other_hint"))
 
         other_bets = [b for b in game.bets if not b.id.startswith("num_")]
         other_game = type(game)("Roulette Other Bets", other_bets)
-        rows = _build_bet_rows(other_game, extremum, ve, st.session_state.bankroll)
-        _render_recommendations_table(rows)
+        rows = _build_bet_rows(other_game, extremum, ve, st.session_state.bankroll, t)
+        _render_recommendations_table(rows, t)
 
     with tab_french:
-        _render_french_bets_tab()
+        _render_french_bets_tab(t)
 
     with tab_signals:
-        _render_signals_tab(game, extremum)
+        _render_signals_tab(game, extremum, t)
 
     with tab_mc:
-        _render_monte_carlo_tab(game, extremum, ve, portfolio, mc)
+        _render_monte_carlo_tab(game, extremum, ve, portfolio, mc, t)

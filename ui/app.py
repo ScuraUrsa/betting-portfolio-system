@@ -6,6 +6,8 @@ Run with: streamlit run ui/app.py
 import streamlit as st
 import traceback
 
+from core.i18n import Translator
+
 st.set_page_config(
     page_title="Betting Portfolio System",
     page_icon="🎲",
@@ -13,38 +15,50 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Session state init ────────────────────────────────────────────────
 if "bankroll" not in st.session_state:
     st.session_state.bankroll = 1000.0
+if "lang" not in st.session_state:
+    st.session_state.lang = "en"
 
+t = Translator()
+t.set_lang(st.session_state.lang)
+
+# ── Sidebar ───────────────────────────────────────────────────────────
 st.sidebar.title("🎲 Betting Portfolio")
 st.sidebar.markdown("---")
-st.sidebar.metric("Bankroll", f"{st.session_state.bankroll:,.0f} zł")
+st.sidebar.metric(t.t("bankroll_label"), f"{st.session_state.bankroll:,.0f} zł")
 
 page = st.sidebar.radio(
-    "Navigation",
-    ["🎓 Tutorial", "🎰 Roulette", "🃏 Poker", "📊 Portfolio", "📈 History & Signals", "⚙️ Settings"],
+    t.t("navigation_label"),
+    [
+        t.t("nav_tutorial"),
+        t.t("nav_roulette"),
+        t.t("nav_poker"),
+        t.t("nav_portfolio"),
+        t.t("nav_history"),
+        t.t("nav_settings"),
+    ],
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption(
-    "Game-agnostic portfolio optimization\n"
-    "Z-score · Extremum Index · Kelly · Monte Carlo"
-)
+st.sidebar.caption(t.t("app_tagline"))
 
+# ── Page routing ──────────────────────────────────────────────────────
 try:
-    if page == "🎓 Tutorial":
+    if page == t.t("nav_tutorial"):
         from ui.views.tutorial import show
-    elif page == "🎰 Roulette":
+    elif page == t.t("nav_roulette"):
         from ui.views.roulette import show
-    elif page == "🃏 Poker":
+    elif page == t.t("nav_poker"):
         from ui.views.poker import show
-    elif page == "📊 Portfolio":
+    elif page == t.t("nav_portfolio"):
         from ui.views.portfolio import show
-    elif page == "📈 History & Signals":
+    elif page == t.t("nav_history"):
         from ui.views.history import show
-    elif page == "⚙️ Settings":
+    elif page == t.t("nav_settings"):
         from ui.views.settings import show
     show()
 except Exception as e:
-    st.error(f"Page crashed: {e}")
+    st.error(t.t("page_crashed", error=str(e)))
     st.code(traceback.format_exc())

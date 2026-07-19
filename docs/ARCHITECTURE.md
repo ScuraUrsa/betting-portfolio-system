@@ -1,6 +1,6 @@
 # Betting Portfolio System — Full Documentation
 
-> **Version**: 0.1.0 | **License**: MIT | **Python**: 3.10+
+> **Version**: 0.2.0 | **License**: MIT | **Python**: 3.10+
 > **Repository**: https://github.com/ScuraUrsa/betting-portfolio-system
 
 ---
@@ -31,6 +31,9 @@ The Betting Portfolio System is a **game-agnostic betting portfolio optimization
 | Feature | Description |
 |---------|-------------|
 | **Game-agnostic** | Works for roulette, poker, dice, lottery — any game with finite outcomes |
+| **Multi-table sessions** | Independent sessions with separate histories, like observing multiple tables |
+| **Interactive wheel** | Plotly donut chart with highlighting — selected number, neighbors, opposite zone |
+| **French announced bets** | Jeu 0, Voisins du Zéro, Tiers du Cylindre, Orphelins with wheel coverage |
 | **Z-Score detection** | Rolling window statistics across 6 time horizons |
 | **Extremum Index** | Weighted multi-window signal aggregation |
 | **Mean Reversion Factor** | Learned parameter (0-1) from historical data |
@@ -39,6 +42,7 @@ The Betting Portfolio System is a **game-agnostic betting portfolio optimization
 | **Portfolio Optimization** | Constrained optimization across ALL bets simultaneously |
 | **Monte Carlo** | VaR, CVaR, ruin probability, risk scoring |
 | **Risk Management** | Exposure limits, drawdown controls, loss distribution |
+| **Bilingual UI** | Full English and Polish support (150+ translation keys) |
 | **Interactive UI** | Streamlit dashboard with 6 pages + 15-step tutorial |
 
 ### Design Philosophy
@@ -63,11 +67,11 @@ The system treats betting as a **portfolio management problem**, not a predictio
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐
-│  History Engine  │  (core/history.py)
-│  (SQLite,        │
-│   rolling windows)│
-└────────┬────────┘
+┌─────────────────┐     ┌─────────────────┐
+│  History Engine  │ ←── │ Session Manager │  (core/session.py)
+│  (SQLite,        │     │ (multi-table,    │
+│   rolling windows)│     │  per-session DB) │
+└────────┬────────┘     └─────────────────┘
          │
          ├──────────────────────┐
          ▼                      ▼
@@ -111,57 +115,69 @@ The system treats betting as a **portfolio management problem**, not a predictio
 ### Module Dependency Graph
 
 ```
-game.py          (no dependencies)
-history.py       → game.py
-extremum.py      → history.py, game.py
-value.py         → game.py, extremum.py
-correlation.py   → game.py, history.py
-portfolio.py     → game.py, value.py
-monte_carlo.py   → game.py, portfolio.py
-risk.py          → game.py, portfolio.py
+game.py                  (no dependencies)
+roulette_wheel.py        (no dependencies)
+history.py               → game.py
+session.py               → (standalone, wraps history)
+session_history_adapter.py → session.py, history.py
+i18n.py                  (no dependencies)
+extremum.py              → history.py, game.py
+value.py                 → game.py, extremum.py
+correlation.py           → game.py, history.py
+portfolio.py             → game.py, value.py
+monte_carlo.py           → game.py, portfolio.py
+risk.py                  → game.py, portfolio.py
 ```
 
 ### Directory Structure
 
 ```
 betting-portfolio-system/
-├── core/                    # Abstract engine (game-agnostic)
-│   ├── game.py              # Bet and Game dataclasses
-│   ├── history.py           # SQLite history + rolling windows
-│   ├── extremum.py          # Z-score, EI, MRF
-│   ├── value.py             # EV, Kelly criterion
-│   ├── correlation.py       # Bet correlation matrix
-│   ├── portfolio.py         # Constrained optimization
-│   ├── monte_carlo.py       # Monte Carlo simulations
-│   └── risk.py              # Risk limits, loss distribution
-├── games/                   # Concrete game implementations
-│   ├── roulette.py          # European roulette (37 fields)
-│   └── poker.py             # Texas Hold'em hand rankings
-├── ui/                      # Streamlit dashboard
-│   ├── app.py               # Main app with navigation
-│   └── pages/
-│       ├── tutorial.py      # 15-step interactive tutorial
-│       ├── roulette.py      # Roulette recommendations
-│       ├── poker.py         # Poker recommendations
-│       ├── portfolio.py     # Cross-game portfolio view
-│       ├── history.py       # Draw recording + Z-score dashboard
-│       └── settings.py      # Bankroll, limits, parameters
-├── tests/                   # Test suite
-│   ├── test_game.py         # Game/Bet unit tests
-│   ├── test_games.py        # Roulette + poker tests
-│   ├── test_history.py      # History engine tests
-│   ├── test_extremum.py     # Extremum engine tests
-│   ├── test_value.py        # Value engine tests
-│   ├── test_correlation.py  # Correlation engine tests
-│   ├── test_portfolio.py    # Portfolio engine tests
-│   ├── test_monte_carlo.py  # Monte Carlo tests
-│   ├── test_risk.py         # Risk manager tests
-│   └── test_ui_automated.py # Automated UI + pipeline tests
-├── docs/                    # Documentation
-│   ├── MANUAL_TESTS.md      # Manual test plan (41 scenarios)
-│   └── ARCHITECTURE.md      # This file
-├── data/                    # SQLite databases (gitignored)
-├── pyproject.toml           # Project configuration
+├── core/                         # Abstract engine (game-agnostic)
+│   ├── game.py                   # Bet and Game dataclasses
+│   ├── history.py                # SQLite history + rolling windows
+│   ├── session.py                # SessionManager — multi-table support
+│   ├── session_history_adapter.py # Bridges SessionManager ↔ HistoryEngine
+│   ├── i18n.py                   # Translator — EN/PL (150+ keys)
+│   ├── extremum.py               # Z-score, EI, MRF
+│   ├── value.py                  # EV, Kelly criterion
+│   ├── correlation.py            # Bet correlation matrix
+│   ├── portfolio.py              # Constrained optimization
+│   ├── monte_carlo.py            # Monte Carlo simulations
+│   └── risk.py                   # Risk limits, loss distribution
+├── games/                        # Concrete game implementations
+│   ├── roulette.py               # European roulette (37 fields, 55 bets)
+│   ├── roulette_wheel.py         # Wheel geometry, French bets, visualization
+│   └── poker.py                  # Texas Hold'em hand rankings
+├── ui/                           # Streamlit dashboard
+│   ├── app.py                    # Main app with navigation + session selector
+│   └── views/
+│       ├── tutorial.py           # 15-step interactive tutorial
+│       ├── roulette.py           # Wheel + numbers + French bets + signals + MC
+│       ├── poker.py              # Poker recommendations
+│       ├── portfolio.py          # Cross-game portfolio view
+│       ├── history.py            # Session-aware draw recording + Z-score dashboard
+│       └── settings.py           # Language, bankroll, risk limits
+├── tests/                        # Test suite (130 tests)
+│   ├── test_game.py              # Game/Bet unit tests
+│   ├── test_games.py             # Roulette + poker tests
+│   ├── test_history.py           # History engine tests
+│   ├── test_session.py           # SessionManager tests (17 tests)
+│   ├── test_i18n.py              # Translator tests (15 tests)
+│   ├── test_extremum.py          # Extremum engine tests
+│   ├── test_value.py             # Value engine tests
+│   ├── test_correlation.py       # Correlation engine tests
+│   ├── test_portfolio.py         # Portfolio engine tests
+│   ├── test_monte_carlo.py       # Monte Carlo tests
+│   ├── test_risk.py              # Risk manager tests
+│   └── test_ui_automated.py      # Automated UI + pipeline tests (25 tests)
+├── docs/                         # Documentation
+│   ├── MANUAL_TESTS.md           # Manual test plan (41 scenarios)
+│   └── ARCHITECTURE.md           # This file
+├── data/                         # SQLite databases (gitignored)
+│   ├── sessions.db               # Session metadata
+│   └── session_*.db              # Per-session draw histories
+├── pyproject.toml                # Project configuration
 └── README.md
 ```
 
@@ -185,7 +201,7 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-# All 98 tests (73 unit + 25 automated UI)
+# All 130 tests
 pytest
 
 # Unit tests only
@@ -273,7 +289,44 @@ class Game:
     expected_value(id)  # EV = p * odds - 1
 ```
 
-### 4.2 History Engine (`core/history.py`)
+### 4.2 Roulette Wheel (`games/roulette_wheel.py`)
+
+```python
+# Wheel geometry
+WHEEL_ORDER: list[int]  # 37 numbers in clockwise order
+RED_NUMBERS: set[int]
+BLACK_NUMBERS: set[int]
+
+# French announced bets
+JEU_0: set[int]           # 7 numbers around zero
+VOISINS_DU_ZERO: set[int] # 17 numbers
+TIERS_DU_CYLINDRE: set[int]  # 12 numbers
+ORPHELINS: set[int]       # 8 numbers
+
+# Number properties
+get_color(n) -> str       # "green" | "red" | "black"
+get_parity(n) -> str      # "even" | "odd" | "—"
+get_half(n) -> str        # "low (1-18)" | "high (19-36)" | "—"
+get_dozen(n) -> str       # "1st 12" | "2nd 12" | "3rd 12" | "—"
+get_column(n) -> str      # "Column 1" | "Column 2" | "Column 3" | "—"
+get_section(n) -> str     # French bet section name
+
+# Wheel geometry
+get_neighbors(n, count=2) -> list[int]  # count neighbors each side
+get_opposite(n) -> tuple[int, int]     # 2 numbers ~180° away
+get_opposite_zone(n, spread=1) -> set[int]  # opposite + neighbors
+
+# Visualization
+build_wheel_figure(height=500) -> go.Figure
+build_wheel_figure_highlighted(
+    selected_number=None,  # Number to highlight (white glow)
+    neighbor_count=2,      # Neighbors each side (gold border)
+    opposite_spread=1,     # Opposite zone spread (cyan border)
+    height=550,
+) -> go.Figure
+```
+
+### 4.3 History Engine (`core/history.py`)
 
 ```python
 class HistoryEngine:
@@ -298,7 +351,58 @@ class WindowStats:
 
 **Default windows**: 50, 100, 250, 500, 1000, 5000
 
-### 4.3 Extremum Engine (`core/extremum.py`)
+### 4.4 Session Manager (`core/session.py`)
+
+```python
+@dataclass
+class Session:
+    session_id: int
+    name: str           # e.g. "Table 1", "Casino Warsaw"
+    game_type: str      # "roulette" | "poker"
+    created_at: str     # ISO timestamp
+    draw_count: int
+
+class SessionManager:
+    def __init__(self, db_path: str = "data/sessions.db")
+    def create(name, game_type) -> Session
+    def get(session_id) -> Optional[Session]
+    def list_all() -> list[Session]
+    def delete(session_id)
+    def record_draw(session_id, raw_outcome, won_bet_ids) -> int
+    def get_draws(session_id, limit=None) -> list[DrawRecord]
+    def count_draws(session_id) -> int
+    def clear_history(session_id)
+```
+
+### 4.5 Session History Adapter (`core/session_history_adapter.py`)
+
+Bridges `SessionManager` to the `HistoryEngine` interface so the pipeline (ExtremumEngine, ValueEngine, etc.) works unchanged with session-scoped data.
+
+```python
+class SessionHistoryAdapter:
+    def __init__(self, session_mgr: SessionManager, session_id: int)
+    # Exposes same API as HistoryEngine:
+    #   record_draw(), get_draws(), count_draws(), compute_window_stats()
+```
+
+### 4.6 i18n Translator (`core/i18n.py`)
+
+```python
+class Translator:
+    def __init__(self, lang: str = "en")
+    def set_lang(lang: str)       # "en" | "pl"
+    def t(key: str, **kwargs) -> str  # Translate with format placeholders
+
+# Usage:
+t = Translator()
+t.set_lang("pl")
+t.t("nav_roulette")           # → "🎰 Ruletka"
+t.t("active_signals_count", count=5)  # → "5 aktywnych sygnałów"
+```
+
+**150+ translation keys** covering all UI elements: navigation, metrics, properties, signals, buttons, messages.
+
+### 4.7 Extremum Engine (`core/extremum.py`)
 
 ```python
 class ExtremumEngine:
@@ -329,7 +433,7 @@ class ExtremumResult:
 | < 3.0 | medium |
 | ≥ 3.0 | maximum |
 
-### 4.4 Value Engine (`core/value.py`)
+### 4.8 Value Engine (`core/value.py`)
 
 ```python
 class ValueEngine:
@@ -353,7 +457,7 @@ class ValueResult:
     recommended_stake_pct: float  # min(kelly_quarter, max_stake_pct)
 ```
 
-### 4.5 Correlation Engine (`core/correlation.py`)
+### 4.9 Correlation Engine (`core/correlation.py`)
 
 ```python
 class CorrelationEngine:
@@ -368,7 +472,7 @@ class CorrelationMatrix:
     def get_correlated_bets(bet_id, threshold=0.3) -> list[tuple[str, float]]
 ```
 
-### 4.6 Portfolio Engine (`core/portfolio.py`)
+### 4.10 Portfolio Engine (`core/portfolio.py`)
 
 ```python
 class PortfolioEngine:
@@ -391,7 +495,7 @@ class PortfolioAllocation:
 
 **Optimization method**: SLSQP (Sequential Least Squares Programming) via `scipy.optimize.minimize`.
 
-### 4.7 Monte Carlo Engine (`core/monte_carlo.py`)
+### 4.11 Monte Carlo Engine (`core/monte_carlo.py`)
 
 ```python
 class MonteCarloEngine:
@@ -416,7 +520,7 @@ class MonteCarloResult:
     ruin_probability: float  # P(profit < 0)
 ```
 
-### 4.8 Risk Manager (`core/risk.py`)
+### 4.12 Risk Manager (`core/risk.py`)
 
 ```python
 class RiskManager:
@@ -450,7 +554,7 @@ class LossDistribution:
 
 ## 5. Game Implementations
 
-### 5.1 European Roulette (`games/roulette.py`)
+### 5.1 European Roulette (`games/roulette.py` + `games/roulette_wheel.py`)
 
 ```python
 from games.roulette import european_roulette
@@ -464,6 +568,14 @@ game = european_roulette()
 - Low(1-18)/High(19-36): p=18/37, odds=2:1
 - 3 Dozens: p=12/37, odds=3:1
 - 3 Columns: p=12/37, odds=3:1
+
+**Wheel geometry** (`roulette_wheel.py`):
+- 37 slots in European wheel order
+- Color, parity, half, dozen, column, section for every number
+- French announced bets: Jeu 0 (7), Voisins du Zéro (17), Tiers du Cylindre (12), Orphelins (8)
+- Neighbors: configurable count (1-5) on each side
+- Opposite numbers: 2 numbers ~180° away + configurable neighbor spread (0-3)
+- Interactive Plotly donut chart with highlighting
 
 **House edge**: -1/37 ≈ -2.70% on every bet.
 
@@ -499,7 +611,6 @@ from core.game import Bet, Game
 def two_dice():
     """Sum of two six-sided dice."""
     bets = []
-    # Each sum 2-12 with its probability
     probabilities = {
         2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36,
         7: 6/36, 8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36,
@@ -526,12 +637,37 @@ The entire pipeline (history → extremum → value → portfolio → MC → ris
 
 | Page | File | Description |
 |------|------|-------------|
-| 🎓 Tutorial | `ui/pages/tutorial.py` | 15-step interactive walkthrough |
-| 🎰 Roulette | `ui/pages/roulette.py` | Recommendations, signals, Monte Carlo |
-| 🃏 Poker | `ui/pages/poker.py` | Hand rankings, probability distribution |
-| 📊 Portfolio | `ui/pages/portfolio.py` | Cross-game optimization, loss distribution |
-| 📈 History | `ui/pages/history.py` | Draw recording, Z-score heatmap, history browser |
-| ⚙️ Settings | `ui/pages/settings.py` | Bankroll, risk limits, data management |
+| 🎓 Tutorial | `ui/views/tutorial.py` | 15-step interactive walkthrough |
+| 🎰 Roulette | `ui/views/roulette.py` | Interactive wheel, numbers, French bets, signals, Monte Carlo |
+| 🃏 Poker | `ui/views/poker.py` | Hand rankings, probability distribution |
+| 📊 Portfolio | `ui/views/portfolio.py` | Cross-game optimization, loss distribution |
+| 📈 History | `ui/views/history.py` | Session-aware draw recording, Z-score heatmap, history browser |
+| ⚙️ Settings | `ui/views/settings.py` | Language (EN/PL), bankroll, risk limits |
+
+### Roulette Page Tabs
+
+The roulette page has 6 sub-tabs:
+1. **🎡 Wheel** — Interactive wheel with highlighting + number lookup
+2. **🔢 Numbers** — Straight-up number recommendations
+3. **🎯 Other Bets** — Red/black, even/odd, low/high, dozens, columns
+4. **🇫🇷 French Bets** — Jeu 0, Voisins, Tiers, Orphelins with wheel coverage
+5. **📈 Signals** — Z-score per window
+6. **🎲 Monte Carlo** — Simulations
+
+### Wheel Highlighting
+
+- **White glow + pull-out** — selected number
+- **Gold border** — neighbors (configurable 1-5 each side)
+- **Cyan border** — opposite zone (configurable spread 0-3)
+- **Legend** — annotations on the chart itself
+- **Hover** — full info: color, parity, half, dozen, column, section, neighbors, opposite
+
+### Session Management
+
+- **Sidebar selector** — switch between active sessions
+- **Create** — new session with name + game type
+- **Delete** — remove session and its history
+- **Per-session data** — each session has independent draw history and recommendations
 
 ### Tutorial Steps
 
@@ -575,6 +711,8 @@ streamlit run ui/app.py --server.headless true
 | `test_game.py` | 12 | Game/Bet dataclasses, validation, EV |
 | `test_games.py` | 13 | Roulette and poker implementations |
 | `test_history.py` | 9 | SQLite storage, rolling windows, Z-score |
+| `test_session.py` | 17 | SessionManager CRUD, draw recording, multi-table |
+| `test_i18n.py` | 15 | Translator, EN/PL, format placeholders, edge cases |
 | `test_extremum.py` | 8 | EI, MRF learning, signal classification |
 | `test_value.py` | 7 | EV, Kelly fractions, risk scoring |
 | `test_correlation.py` | 4 | Structural and empirical correlation |
@@ -582,7 +720,7 @@ streamlit run ui/app.py --server.headless true
 | `test_monte_carlo.py` | 5 | Independent and game-outcome simulation |
 | `test_risk.py` | 9 | Risk limits, loss distribution, assessment |
 | `test_ui_automated.py` | 25 | Module structure, full pipeline, HTTP, edge cases, regression |
-| **Total** | **98** | |
+| **Total** | **130** | |
 
 ### Running Tests
 
@@ -604,7 +742,7 @@ pytest --cov=core --cov=games --cov-report=html
 
 Six test classes covering:
 
-1. **TestUIModuleStructure** (4 tests) — all pages have `show()`, app has `main()`, pages dict complete, files exist
+1. **TestUIModuleStructure** (4 tests) — all pages have `show()`, NAV_KEYS complete, files exist
 2. **TestFullPipeline** (3 tests) — end-to-end: game → history → extremum → value → portfolio → MC → risk
 3. **TestStreamlitAppHTTP** (3 tests) — app starts, returns 200, serves static resources
 4. **TestStateManagement** (3 tests) — bankroll default/update, tutorial step state
@@ -625,8 +763,8 @@ See `docs/MANUAL_TESTS.md` for 41 manual test scenarios across 9 test suites cov
 2. Implement a factory function returning `Game` with `Bet` objects
 3. Call `game.validate()` before returning
 4. Add tests in `tests/test_games.py`
-5. Add a UI page in `ui/pages/yourgame.py` with a `show()` function
-6. Register the page in `ui/app.py` → `pages` dict
+5. Add a UI page in `ui/views/yourgame.py` with a `show()` function
+6. Register the page in `ui/app.py` → `NAV_KEYS` and routing
 
 ### Adding a New Analysis Module
 
@@ -635,6 +773,13 @@ See `docs/MANUAL_TESTS.md` for 41 manual test scenarios across 9 test suites cov
 3. Use dataclasses for results
 4. Add tests in `tests/test_yourmodule.py`
 5. Integrate into the pipeline in UI pages
+
+### Adding a New Language
+
+1. Add language code to `core/i18n.py` → `TRANSLATIONS` dict
+2. Copy the `en` block and translate all 150+ keys
+3. Add the language to `LANGUAGES` list
+4. The Settings page auto-detects new languages
 
 ### Customizing Risk Limits
 
@@ -744,7 +889,7 @@ Solved via SLSQP (Sequential Least Squares Programming).
 ```toml
 [project]
 name = "betting-portfolio-system"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.10"
 
 dependencies = [
@@ -770,7 +915,9 @@ None required. All configuration is in-code.
 
 ### Database
 
-SQLite databases are stored in `data/` directory (gitignored). Each game can have its own database file.
+SQLite databases are stored in `data/` directory (gitignored):
+- `sessions.db` — session metadata (names, game types, timestamps)
+- `session_<id>.db` — per-session draw histories
 
 ---
 

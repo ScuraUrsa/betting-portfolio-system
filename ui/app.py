@@ -32,13 +32,12 @@ t.set_lang(st.session_state.lang)
 mgr: SessionManager = st.session_state.session_mgr
 
 # ── Navigation key → translated label ─────────────────────────────────
-NAV_KEYS = ["tutorial", "roulette", "poker", "portfolio", "history", "settings"]
+NAV_KEYS = ["tutorial", "roulette", "poker", "portfolio", "settings"]
 NAV_LABELS = {
     "tutorial": t.t("nav_tutorial"),
     "roulette": t.t("nav_roulette"),
     "poker": t.t("nav_poker"),
     "portfolio": t.t("nav_portfolio"),
-    "history": t.t("nav_history"),
     "settings": t.t("nav_settings"),
 }
 
@@ -123,8 +122,6 @@ try:
         from ui.views.poker import show
     elif page_key == "portfolio":
         from ui.views.portfolio import show
-    elif page_key == "history":
-        from ui.views.history import show
     elif page_key == "settings":
         from ui.views.settings import show
     show()

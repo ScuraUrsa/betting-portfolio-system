@@ -55,14 +55,13 @@ class TestUIModuleStructure:
         assert hasattr(app, "traceback")
 
     def test_app_pages_dict_complete(self):
-        """App must register all 6 pages via NAV_KEYS."""
+        """App must register all 5 pages via NAV_KEYS."""
         from ui.app import NAV_KEYS
-        assert len(NAV_KEYS) == 6
+        assert len(NAV_KEYS) == 5
         assert "tutorial" in NAV_KEYS
         assert "roulette" in NAV_KEYS
         assert "poker" in NAV_KEYS
         assert "portfolio" in NAV_KEYS
-        assert "history" in NAV_KEYS
         assert "settings" in NAV_KEYS
 
     def test_page_files_exist(self):

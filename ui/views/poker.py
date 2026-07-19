@@ -1,4 +1,4 @@
-"""Poker recommendations page — session-aware."""
+"""Poker page — rankings, Monte Carlo, history, all per-session."""
 
 import streamlit as st
 import numpy as np
@@ -16,7 +16,6 @@ from core.session_history_adapter import SessionHistoryAdapter
 
 
 def _get_history():
-    """Get session-aware history adapter for the active session."""
     mgr: SessionManager = st.session_state.get("session_mgr")
     sid = st.session_state.get("active_session_id")
     if mgr is None or sid is None:
@@ -42,9 +41,10 @@ def show():
     mc = MonteCarloEngine(seed=42)
     risk_mgr = RiskManager()
 
-    tab1, tab2 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         t.t("poker_tab_rankings"),
         t.t("poker_tab_monte_carlo"),
+        "📋 History",
     ])
 
     with tab1:
@@ -95,7 +95,6 @@ def show():
                 extremum_results = {r.bet_id: r for r in extremum.analyze_all(game)}
                 value_results = value_engine.analyze_all(game, extremum_results)
                 allocation = portfolio.optimize(game, value_results)
-
                 result = mc.simulate_independent(game, allocation, n_simulations=n_sims)
 
             col1, col2, col3, col4 = st.columns(4)
@@ -116,3 +115,57 @@ def show():
                 xaxis_title="Profit (zł)", yaxis_title="Frequency", height=400,
             )
             st.plotly_chart(fig, width='stretch')
+
+    with tab3:
+        st.subheader("➕ Record Draw")
+        hand_options = [(b.id, b.name) for b in game.bets]
+        hand_id = st.selectbox(
+            "Hand achieved",
+            [h[0] for h in hand_options],
+            format_func=lambda x: dict(hand_options)[x],
+            key="poker_record_hand",
+        )
+
+        if st.button("Record Draw", type="primary", key="poker_record_btn"):
+            draw_id = history.record_draw(game, hand_id, [hand_id])
+            st.success(f"Draw #{draw_id} recorded: {dict(hand_options)[hand_id]}")
+            st.rerun()
+
+        # Quick batch
+        st.markdown("---")
+        c1, c2 = st.columns([1, 2])
+        with c1:
+            n_gen = st.slider("Generate random draws", 10, 1000, 100, key="poker_gen_slider")
+        with c2:
+            if st.button("Generate Random Draws", key="poker_gen_btn"):
+                with st.spinner(f"Generating {n_gen} draws..."):
+                    hand_ids = [b.id for b in game.bets]
+                    probs = np.array([b.probability for b in game.bets])
+                    probs = probs / probs.sum()
+                    rng = np.random.default_rng()
+                    for _ in range(n_gen):
+                        hand = rng.choice(hand_ids, p=probs)
+                        history.record_draw(game, hand, [hand])
+                st.success(f"Generated {n_gen} random draws")
+                st.rerun()
+
+        st.markdown("---")
+        st.subheader("📋 Draw History")
+        total = history.count_draws(game.name)
+        st.metric("Total draws", total)
+
+        if total > 0:
+            last_n = st.slider(
+                "Show last N draws", min_value=5, max_value=max(10, total),
+                value=min(50, total), key="poker_history_slider",
+            )
+            draws = history.get_draws(game.name, limit=last_n)
+            if draws:
+                rows = []
+                for d in draws:
+                    rows.append({
+                        "#": d.draw_id,
+                        "Time": d.timestamp[:19],
+                        "Hand": d.raw_outcome,
+                    })
+                st.dataframe(rows, width='stretch', hide_index=True)

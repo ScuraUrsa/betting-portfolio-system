@@ -48,7 +48,7 @@ def show():
 
         order = {"maximum": 0, "medium": 1, "entry_small": 2, "observation": 3, "none": 4}
         rows.sort(key=lambda r: order.get(r["Signal"], 5))
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width='stretch', hide_index=True)
 
         active = [r for r in rows if r["Signal"] != "none"]
         st.success(f"🔔 {len(active)} bets with active signals") if active else st.info("No significant signals detected")
@@ -76,7 +76,7 @@ def show():
                 for y in (2, -2, 3, -3):
                     fig.add_hline(y=y, line_dash="dash", line_color="orange" if abs(y) == 2 else "red")
                 fig.update_layout(title=f"Z-Score by Window — {sel}", height=400)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
     with tab3:
         st.subheader("Monte Carlo Simulation")
@@ -120,4 +120,4 @@ def show():
             fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Break-even")
             fig.add_vline(x=res.expected_return, line_dash="dash", line_color="green", annotation_text=f"Mean: {res.expected_return:+.1f}")
             fig.update_layout(title=f"Profit Distribution ({n:,} simulations)", height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')

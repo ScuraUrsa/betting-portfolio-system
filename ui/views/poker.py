@@ -46,7 +46,7 @@ def show():
                 "Rec. Stake zł": f"{vr.recommended_stake_pct * st.session_state.bankroll:.2f}",
             })
 
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width='stretch', hide_index=True)
 
         # Probability distribution chart
         fig = go.Figure()
@@ -63,7 +63,7 @@ def show():
             yaxis_title="Probability",
             height=400,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     with tab2:
         st.subheader("Monte Carlo Simulation")
@@ -95,6 +95,6 @@ def show():
                 title=f"Profit Distribution ({n_sims:,} simulations)",
                 xaxis_title="Profit (zł)", yaxis_title="Frequency", height=400,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
 

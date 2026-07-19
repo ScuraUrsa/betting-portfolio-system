@@ -108,7 +108,7 @@ def show():
                     "Signal": r.signal_level,
                 })
 
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width='stretch', hide_index=True)
 
             # Heatmap of Z-scores
             st.subheader("Z-Score Heatmap")
@@ -134,7 +134,7 @@ def show():
                     title="Z-Score by Bet × Window",
                     height=500,
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
     with tab3:
         st.subheader("Draw History")
@@ -151,7 +151,7 @@ def show():
                     "Outcome": d.raw_outcome,
                     "Won Bets": ", ".join(d.won_bet_ids[:5]) + ("..." if len(d.won_bet_ids) > 5 else ""),
                 })
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width='stretch', hide_index=True)
         else:
             st.info("No draws recorded yet")
 

@@ -76,7 +76,7 @@ def show():
             })
 
     if all_signals:
-        st.dataframe(all_signals, use_container_width=True, hide_index=True)
+        st.dataframe(all_signals, width='stretch', hide_index=True)
     else:
         st.info("No active signals. Add some history data to detect patterns.")
 
@@ -110,7 +110,7 @@ def show():
                 })
 
         if alloc_rows:
-            st.dataframe(alloc_rows, use_container_width=True, hide_index=True)
+            st.dataframe(alloc_rows, width='stretch', hide_index=True)
             st.metric("Total Exposure", f"{allocation.total_exposure:.2%}")
             st.metric("Expected Return", f"{allocation.expected_return:+.2f} zł")
         else:
@@ -185,6 +185,6 @@ def show():
         yaxis_title="Profit (zł)",
         height=400,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 

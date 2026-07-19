@@ -209,7 +209,7 @@ def _step_poker_model():
         textposition="outside",
     ))
     fig.update_layout(height=350, yaxis_title="Probability")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.info("💡 Unlike roulette, poker bets have different EVs because odds "
             "can be set independently. The system finds which hands are undervalued.")
@@ -322,7 +322,7 @@ def _step_zscore():
         fig.add_hline(y=3, line_dash="dash", line_color="red")
         fig.add_hline(y=-3, line_dash="dash", line_color="red")
         fig.update_layout(height=350, title=f"Z-Score by Window — {bet_id}")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # Show raw data
         st.subheader("Raw Statistics")
@@ -337,7 +337,7 @@ def _step_zscore():
                     "Std": f"{ws.std:.2f}",
                     "Z-Score": f"{ws.z_score:+.3f}",
                 })
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width='stretch', hide_index=True)
 
 
 def _step_ei():
@@ -382,7 +382,7 @@ def _step_ei():
             "Direction": r.direction,
             "Signal": r.signal_level,
         })
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width='stretch', hide_index=True)
 
     active = [r for r in results if r.signal_level != "none"]
     if active:
@@ -473,7 +473,7 @@ def _step_value():
             "Exposure": f"{vr.exposure_score:.3f}",
             "Signal": ext.signal_level if ext else "none",
         })
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width='stretch', hide_index=True)
 
     st.info("💡 Notice: when a bet has a strong 'under' signal (below expected), "
             "the exposure score increases — the system bets on regression to the mean.")
@@ -578,7 +578,7 @@ def _step_portfolio():
                 })
 
         if rows:
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width='stretch', hide_index=True)
         else:
             st.info("No positive-EV bets found. Optimal allocation is 0 (don't bet).")
 
@@ -669,7 +669,7 @@ def _step_monte_carlo():
         fig.add_vline(x=result.expected_return, line_dash="dash", line_color="green",
                      annotation_text=f"Mean: {result.expected_return:+.1f}")
         fig.update_layout(height=350, title=f"Profit Distribution ({n_sims:,} simulations)")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 
 def _step_risk():
@@ -796,7 +796,7 @@ def _step_loss_distribution():
     ))
     fig.add_hline(y=0, line_dash="solid", line_color="white")
     fig.update_layout(height=350, title="Profit by Scenario", xaxis_title="Scenario", yaxis_title="Profit (zł)")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.info(f"💡 {len(loss_dist.loss_scenarios)} scenarios lose money, "
             f"{len(loss_dist.profit_scenarios)} scenarios make money. "
@@ -849,7 +849,7 @@ def _step_combined():
                 })
 
         if rows:
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width='stretch', hide_index=True)
             st.metric("Total Exposure", f"{allocation.total_exposure:.2%}")
             st.metric("Expected Return", f"{allocation.expected_return:+.2f} zł")
         else:

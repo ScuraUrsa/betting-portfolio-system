@@ -14,6 +14,7 @@ st.set_page_config(
 
 # Navigation
 pages = {
+    "🎓 Tutorial": "ui/pages/tutorial.py",
     "🎰 Roulette": "ui/pages/roulette.py",
     "🃏 Poker": "ui/pages/poker.py",
     "📊 Portfolio": "ui/pages/portfolio.py",

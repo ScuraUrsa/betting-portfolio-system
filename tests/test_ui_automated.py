@@ -56,21 +56,22 @@ class TestUIModuleStructure:
 
     def test_app_pages_dict_complete(self):
         """App must register all 6 pages."""
-        from ui.app import pages
-        assert len(pages) == 6
-        assert "🎓 Tutorial" in pages
-        assert "🎰 Roulette" in pages
-        assert "🃏 Poker" in pages
-        assert "📊 Portfolio" in pages
-        assert "📈 History & Signals" in pages
-        assert "⚙️ Settings" in pages
+        from ui.app import PAGES
+        assert len(PAGES) == 6
+        page_names = {m.__name__.split(".")[-1] for m in PAGES.values()}
+        assert "tutorial" in page_names
+        assert "roulette" in page_names
+        assert "poker" in page_names
+        assert "portfolio" in page_names
+        assert "history" in page_names
+        assert "settings" in page_names
 
     def test_page_files_exist(self):
         """All page files must exist on disk."""
-        from ui.app import pages
-        for name, path in pages.items():
-            full_path = Path(__file__).parent.parent / path
-            assert full_path.exists(), f"Page file missing: {full_path}"
+        from ui.app import PAGES
+        for name, module in PAGES.items():
+            path = module.__file__
+            assert Path(path).exists(), f"Page file missing: {path}"
 
 
 # ═══════════════════════════════════════════════════════════════════════

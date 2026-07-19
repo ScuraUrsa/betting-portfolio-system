@@ -96,3 +96,5 @@ def show():
                 xaxis_title="Profit (zł)", yaxis_title="Frequency", height=400,
             )
             st.plotly_chart(fig, use_container_width=True)
+
+

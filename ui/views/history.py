@@ -154,3 +154,5 @@ def show():
             st.dataframe(rows, use_container_width=True, hide_index=True)
         else:
             st.info("No draws recorded yet")
+
+

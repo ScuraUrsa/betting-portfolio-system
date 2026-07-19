@@ -95,3 +95,5 @@ def show():
             h.clear_history("Texas Hold'em Hand Rankings")
             st.success("Poker history cleared")
             st.rerun()
+
+

@@ -57,29 +57,28 @@ def show():
 
     step = st.session_state.tutorial_step
 
-    # Sidebar navigation
-    with st.sidebar:
-        st.subheader("Tutorial Steps")
-        for i, name in enumerate(STEPS):
-            if i == step:
-                st.markdown(f"**→ {name}**")
-            elif i < step:
-                st.markdown(f"✓ ~~{name}~~")
-            else:
-                st.caption(name)
+    # Step navigation (in main area, not sidebar)
+    st.subheader("Tutorial Steps")
+    cols = st.columns(len(STEPS))
+    for i, name in enumerate(STEPS):
+        if i == step:
+            cols[i].markdown(f"**→ {i+1}**")
+        elif i < step:
+            cols[i].markdown(f"✓ {i+1}")
+        else:
+            cols[i].caption(f"{i+1}")
 
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("← Previous", disabled=(step == 0)):
-                st.session_state.tutorial_step = max(0, step - 1)
-                st.rerun()
-        with col2:
-            if st.button("Next →", disabled=(step == len(STEPS) - 1)):
-                st.session_state.tutorial_step = min(len(STEPS) - 1, step + 1)
-                st.rerun()
+    st.progress((step + 1) / len(STEPS))
 
-        st.progress((step + 1) / len(STEPS))
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("← Previous", disabled=(step == 0)):
+            st.session_state.tutorial_step = max(0, step - 1)
+            st.rerun()
+    with col2:
+        if st.button("Next →", disabled=(step == len(STEPS) - 1)):
+            st.session_state.tutorial_step = min(len(STEPS) - 1, step + 1)
+            st.rerun()
 
     st.markdown("---")
 
@@ -894,3 +893,5 @@ def _step_summary():
     if st.button("🔄 Restart Tutorial", key="tut_restart"):
         st.session_state.tutorial_step = 0
         st.rerun()
+
+

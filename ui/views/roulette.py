@@ -11,12 +11,22 @@ from games.roulette_wheel import (
     get_color, get_parity, get_half, get_dozen, get_column, get_section,
     get_neighbors, get_opposite, build_wheel_figure,
 )
-from core.history import HistoryEngine
 from core.extremum import ExtremumEngine
 from core.value import ValueEngine
 from core.portfolio import PortfolioEngine
 from core.monte_carlo import MonteCarloEngine
 from core.i18n import Translator
+from core.session import SessionManager
+from core.session_history_adapter import SessionHistoryAdapter
+
+
+def _get_history():
+    """Get session-aware history adapter for the active session."""
+    mgr: SessionManager = st.session_state.get("session_mgr")
+    sid = st.session_state.get("active_session_id")
+    if mgr is None or sid is None:
+        return None
+    return SessionHistoryAdapter(mgr, sid)
 
 
 def _build_bet_rows(game, extremum, ve, bankroll, t):
@@ -152,7 +162,6 @@ def _render_wheel_tab(t):
     fig = build_wheel_figure(height=550)
     st.plotly_chart(fig, width='stretch')
 
-    # ── Number detail lookup ─────────────────────────────────────────
     st.markdown("---")
     st.subheader(t.t("roulette_lookup_title"))
     lookup = st.number_input(t.t("roulette_lookup_label"), min_value=0, max_value=36, value=17, step=1)
@@ -163,7 +172,6 @@ def _render_wheel_tab(t):
         neighbors = get_neighbors(n, 2)
         opp = get_opposite(n)
 
-        # Map property values to translated strings
         color_map = {"green": t.t("prop_green"), "red": t.t("prop_red"), "black": t.t("prop_black")}
         parity_map = {"even": t.t("prop_even"), "odd": t.t("prop_odd"), "—": t.t("prop_na")}
         half_map = {"low (1-18)": t.t("prop_low"), "high (19-36)": t.t("prop_high"), "—": t.t("prop_na")}
@@ -231,14 +239,17 @@ def show():
 
     st.title(t.t("roulette_title"))
 
+    history = _get_history()
+    if history is None:
+        st.warning("No active session. Create a roulette session in the sidebar first.")
+        return
+
     game = european_roulette()
-    history = HistoryEngine("data/roulette_history.db")
     extremum = ExtremumEngine(history)
     ve = ValueEngine()
     portfolio = PortfolioEngine(bankroll=st.session_state.bankroll)
     mc = MonteCarloEngine(seed=42)
 
-    # ── Main tabs ─────────────────────────────────────────────────────
     tab_wheel, tab_numbers, tab_bets, tab_french, tab_signals, tab_mc = st.tabs([
         t.t("roulette_tab_wheel"),
         t.t("roulette_tab_numbers"),

@@ -1,4 +1,4 @@
-"""Portfolio overview page — cross-game view."""
+"""Portfolio overview page — cross-game view, session-aware."""
 
 import streamlit as st
 import numpy as np
@@ -6,13 +6,28 @@ import plotly.graph_objects as go
 
 from games.roulette import european_roulette
 from games.poker import texas_holdem_hand_rankings
-from core.history import HistoryEngine
 from core.extremum import ExtremumEngine
 from core.value import ValueEngine
 from core.portfolio import PortfolioEngine
 from core.monte_carlo import MonteCarloEngine
 from core.risk import RiskManager, RiskLimits
 from core.i18n import Translator
+from core.session import SessionManager
+from core.session_history_adapter import SessionHistoryAdapter
+
+
+def _get_history_for_game(game_type: str):
+    """Get session-aware history adapter for the active session, if it matches game_type."""
+    mgr: SessionManager = st.session_state.get("session_mgr")
+    sid = st.session_state.get("active_session_id")
+    if mgr is None or sid is None:
+        return None, None
+
+    session = mgr.get(sid)
+    if session is None or session.game_type != game_type:
+        return None, session
+
+    return SessionHistoryAdapter(mgr, sid), session
 
 
 def show():
@@ -34,23 +49,32 @@ def show():
     roulette = european_roulette()
     poker = texas_holdem_hand_rankings()
 
-    rh = HistoryEngine("data/roulette_history.db")
-    ph = HistoryEngine("data/poker_history.db")
-
-    re = ExtremumEngine(rh)
-    pe = ExtremumEngine(ph)
+    # Get session-aware histories
+    rh, _ = _get_history_for_game("roulette")
+    ph, _ = _get_history_for_game("poker")
 
     ve = ValueEngine()
     portfolio = PortfolioEngine(bankroll=bankroll)
     mc = MonteCarloEngine(seed=42)
     risk_mgr = RiskManager()
 
-    # Analyze both
-    r_ext = {r.bet_id: r for r in re.analyze_all(roulette)}
-    p_ext = {r.bet_id: r for r in pe.analyze_all(poker)}
+    # Analyze roulette if we have a session
+    r_val = []
+    if rh is not None:
+        re = ExtremumEngine(rh)
+        r_ext = {r.bet_id: r for r in re.analyze_all(roulette)}
+        r_val = ve.analyze_all(roulette, r_ext)
+    else:
+        r_ext = {}
 
-    r_val = ve.analyze_all(roulette, r_ext)
-    p_val = ve.analyze_all(poker, p_ext)
+    # Analyze poker if we have a session
+    p_val = []
+    if ph is not None:
+        pe = ExtremumEngine(ph)
+        p_ext = {r.bet_id: r for r in pe.analyze_all(poker)}
+        p_val = ve.analyze_all(poker, p_ext)
+    else:
+        p_ext = {}
 
     # Find top signals
     st.subheader("🔔 Active Signals")
@@ -97,90 +121,96 @@ def show():
         )
         combined_val = r_val + p_val
 
-        allocation = portfolio.optimize(combined, combined_val)
-
-        st.write("### Recommended Allocation")
-        alloc_rows = []
-        for i, bid in enumerate(allocation.bet_ids):
-            if allocation.stake_pcts[i] > 0.001:
-                game_name = "Roulette" if bid in [b.id for b in roulette.bets] else "Poker"
-                alloc_rows.append({
-                    "Game": game_name,
-                    t.t("rec_bet"): bid,
-                    t.t("rec_stake_pct"): f"{allocation.stake_pcts[i]:.2%}",
-                    t.t("rec_stake_pln"): f"{allocation.stakes[i]:.2f}",
-                })
-
-        if alloc_rows:
-            st.dataframe(alloc_rows, width='stretch', hide_index=True)
-            st.metric("Total Exposure", f"{allocation.total_exposure:.2%}")
-            st.metric(t.t("metric_expected_return"), f"{allocation.expected_return:+.2f} zł")
+        if not combined_val:
+            st.warning("No data available. Create sessions for both games first.")
         else:
-            st.info("No positive-EV bets found. Optimal allocation is 0.")
+            allocation = portfolio.optimize(combined, combined_val)
 
-        risk_report = risk_mgr.assess(allocation, bankroll)
-        if not risk_report.is_acceptable:
-            st.warning("⚠️ Risk limits exceeded:")
-            for v in risk_report.limits_exceeded:
-                st.write(f"- {v}")
-        else:
-            st.success("✅ Risk limits OK")
+            st.write("### Recommended Allocation")
+            alloc_rows = []
+            for i, bid in enumerate(allocation.bet_ids):
+                if allocation.stake_pcts[i] > 0.001:
+                    game_name = "Roulette" if bid in [b.id for b in roulette.bets] else "Poker"
+                    alloc_rows.append({
+                        "Game": game_name,
+                        t.t("rec_bet"): bid,
+                        t.t("rec_stake_pct"): f"{allocation.stake_pcts[i]:.2%}",
+                        t.t("rec_stake_pln"): f"{allocation.stakes[i]:.2f}",
+                    })
+
+            if alloc_rows:
+                st.dataframe(alloc_rows, width='stretch', hide_index=True)
+                st.metric("Total Exposure", f"{allocation.total_exposure:.2%}")
+                st.metric(t.t("metric_expected_return"), f"{allocation.expected_return:+.2f} zł")
+            else:
+                st.info("No positive-EV bets found. Optimal allocation is 0.")
+
+            risk_report = risk_mgr.assess(allocation, bankroll)
+            if not risk_report.is_acceptable:
+                st.warning("⚠️ Risk limits exceeded:")
+                for v in risk_report.limits_exceeded:
+                    st.write(f"- {v}")
+            else:
+                st.success("✅ Risk limits OK")
 
     st.markdown("---")
 
-    # Loss distribution summary
+    # Loss distribution (only if roulette session exists)
     st.subheader(t.t("portfolio_loss_title"))
 
-    red_numbers = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
-    win_sets = {}
-    for b in roulette.bets:
-        if b.id.startswith("num_"):
-            num = int(b.id.split("_")[1])
-            win_sets[b.id] = {str(num)}
-        elif b.id == "red":
-            win_sets[b.id] = {str(n) for n in red_numbers}
-        elif b.id == "black":
-            win_sets[b.id] = {str(n) for n in range(1, 37) if n not in red_numbers}
-        elif b.id == "even":
-            win_sets[b.id] = {str(n) for n in range(2, 37, 2)}
-        elif b.id == "odd":
-            win_sets[b.id] = {str(n) for n in range(1, 37, 2)}
-        elif b.id == "low":
-            win_sets[b.id] = {str(n) for n in range(1, 19)}
-        elif b.id == "high":
-            win_sets[b.id] = {str(n) for n in range(19, 37)}
-        elif b.id.startswith("dozen_"):
-            d = int(b.id.split("_")[1])
-            start = (d - 1) * 12 + 1
-            win_sets[b.id] = {str(n) for n in range(start, start + 12)}
-        elif b.id.startswith("col_"):
-            c = int(b.id.split("_")[1])
-            win_sets[b.id] = {str(n) for n in range(1, 37) if (n - 1) % 3 == c - 1}
+    if rh is not None and r_val:
+        red_numbers = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+        win_sets = {}
+        for b in roulette.bets:
+            if b.id.startswith("num_"):
+                num = int(b.id.split("_")[1])
+                win_sets[b.id] = {str(num)}
+            elif b.id == "red":
+                win_sets[b.id] = {str(n) for n in red_numbers}
+            elif b.id == "black":
+                win_sets[b.id] = {str(n) for n in range(1, 37) if n not in red_numbers}
+            elif b.id == "even":
+                win_sets[b.id] = {str(n) for n in range(2, 37, 2)}
+            elif b.id == "odd":
+                win_sets[b.id] = {str(n) for n in range(1, 37, 2)}
+            elif b.id == "low":
+                win_sets[b.id] = {str(n) for n in range(1, 19)}
+            elif b.id == "high":
+                win_sets[b.id] = {str(n) for n in range(19, 37)}
+            elif b.id.startswith("dozen_"):
+                d = int(b.id.split("_")[1])
+                start = (d - 1) * 12 + 1
+                win_sets[b.id] = {str(n) for n in range(start, start + 12)}
+            elif b.id.startswith("col_"):
+                c = int(b.id.split("_")[1])
+                win_sets[b.id] = {str(n) for n in range(1, 37) if (n - 1) % 3 == c - 1}
 
-    r_alloc = portfolio.optimize(roulette, r_val)
-    outcome_probs = {str(i): 1 / 37 for i in range(37)}
-    all_outcomes = [str(i) for i in range(37)]
+        r_alloc = portfolio.optimize(roulette, r_val)
+        outcome_probs = {str(i): 1 / 37 for i in range(37)}
+        all_outcomes = [str(i) for i in range(37)]
 
-    scenarios = portfolio.analyze_scenarios(roulette, r_alloc, win_sets, all_outcomes, outcome_probs)
-    loss_dist = risk_mgr.compute_loss_distribution(scenarios)
+        scenarios = portfolio.analyze_scenarios(roulette, r_alloc, win_sets, all_outcomes, outcome_probs)
+        loss_dist = risk_mgr.compute_loss_distribution(scenarios)
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Best Case", f"{loss_dist.best_case:+.0f} zł")
-    col2.metric("Worst Case", f"{loss_dist.worst_case:+.0f} zł")
-    col3.metric("Expected", f"{loss_dist.expected_case:+.0f} zł")
-    col4.metric("P(Profit)", f"{loss_dist.profit_probability:.1%}")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Best Case", f"{loss_dist.best_case:+.0f} zł")
+        col2.metric("Worst Case", f"{loss_dist.worst_case:+.0f} zł")
+        col3.metric("Expected", f"{loss_dist.expected_case:+.0f} zł")
+        col4.metric("P(Profit)", f"{loss_dist.profit_probability:.1%}")
 
-    profits = [s.profit for s in scenarios]
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=[f"Scenario {s.scenario_id}" for s in scenarios],
-        y=profits,
-        marker_color=["green" if p > 0 else "red" for p in profits],
-    ))
-    fig.update_layout(
-        title="Profit by Scenario (Roulette)",
-        xaxis_title="Scenario",
-        yaxis_title="Profit (zł)",
-        height=400,
-    )
-    st.plotly_chart(fig, width='stretch')
+        profits = [s.profit for s in scenarios]
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=[f"Scenario {s.scenario_id}" for s in scenarios],
+            y=profits,
+            marker_color=["green" if p > 0 else "red" for p in profits],
+        ))
+        fig.update_layout(
+            title="Profit by Scenario (Roulette)",
+            xaxis_title="Scenario",
+            yaxis_title="Profit (zł)",
+            height=400,
+        )
+        st.plotly_chart(fig, width='stretch')
+    else:
+        st.info("Create a roulette session to see loss distribution analysis.")

@@ -1,17 +1,27 @@
-"""Poker recommendations page."""
+"""Poker recommendations page — session-aware."""
 
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
 from games.poker import texas_holdem_hand_rankings
-from core.history import HistoryEngine
 from core.extremum import ExtremumEngine
 from core.value import ValueEngine
 from core.portfolio import PortfolioEngine
 from core.monte_carlo import MonteCarloEngine
 from core.risk import RiskManager
 from core.i18n import Translator
+from core.session import SessionManager
+from core.session_history_adapter import SessionHistoryAdapter
+
+
+def _get_history():
+    """Get session-aware history adapter for the active session."""
+    mgr: SessionManager = st.session_state.get("session_mgr")
+    sid = st.session_state.get("active_session_id")
+    if mgr is None or sid is None:
+        return None
+    return SessionHistoryAdapter(mgr, sid)
 
 
 def show():
@@ -20,8 +30,12 @@ def show():
 
     st.title(t.t("poker_title"))
 
+    history = _get_history()
+    if history is None:
+        st.warning("No active session. Create a poker session in the sidebar first.")
+        return
+
     game = texas_holdem_hand_rankings()
-    history = HistoryEngine("data/poker_history.db")
     extremum = ExtremumEngine(history)
     value_engine = ValueEngine()
     portfolio = PortfolioEngine(bankroll=st.session_state.bankroll)
@@ -55,7 +69,6 @@ def show():
 
         st.dataframe(rows, width='stretch', hide_index=True)
 
-        # Probability distribution chart
         fig = go.Figure()
         probs = [b.probability for b in game.bets]
         names = [b.name for b in game.bets]

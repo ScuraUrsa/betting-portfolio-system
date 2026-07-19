@@ -9,7 +9,8 @@ from games.roulette_wheel import (
     WHEEL_ORDER, RED_NUMBERS, BLACK_NUMBERS,
     JEU_0, VOISINS_DU_ZERO, TIERS_DU_CYLINDRE, ORPHELINS,
     get_color, get_parity, get_half, get_dozen, get_column, get_section,
-    get_neighbors, get_opposite, build_wheel_figure,
+    get_neighbors, get_opposite, get_opposite_zone,
+    build_wheel_figure, build_wheel_figure_highlighted,
 )
 from core.extremum import ExtremumEngine
 from core.value import ValueEngine
@@ -155,49 +156,95 @@ def _render_monte_carlo_tab(game, extremum, ve, portfolio, mc, t):
 
 
 def _render_wheel_tab(t):
-    """Render the interactive wheel visualization tab."""
+    """Render the interactive wheel visualization tab with highlighting."""
     st.subheader(t.t("roulette_wheel_title"))
     st.caption(t.t("roulette_wheel_hint"))
 
-    fig = build_wheel_figure(height=550)
-    st.plotly_chart(fig, width='stretch')
-
-    st.markdown("---")
-    st.subheader(t.t("roulette_lookup_title"))
-    lookup = st.number_input(t.t("roulette_lookup_label"), min_value=0, max_value=36, value=17, step=1)
-
-    if lookup is not None:
-        n = int(lookup)
-        c = get_color(n)
-        neighbors = get_neighbors(n, 2)
-        opp = get_opposite(n)
-
-        color_map = {"green": t.t("prop_green"), "red": t.t("prop_red"), "black": t.t("prop_black")}
-        parity_map = {"even": t.t("prop_even"), "odd": t.t("prop_odd"), "—": t.t("prop_na")}
-        half_map = {"low (1-18)": t.t("prop_low"), "high (19-36)": t.t("prop_high"), "—": t.t("prop_na")}
-        dozen_map = {"1st 12": t.t("prop_dozen_1"), "2nd 12": t.t("prop_dozen_2"), "3rd 12": t.t("prop_dozen_3"), "—": t.t("prop_na")}
-        col_map = {"Column 1": t.t("prop_col_1"), "Column 2": t.t("prop_col_2"), "Column 3": t.t("prop_col_3"), "—": t.t("prop_na")}
-        section_map = {"Jeu 0": t.t("prop_jeu0"), "Voisins du Zéro": t.t("prop_voisins"), "Tiers du Cylindre": t.t("prop_tiers"), "Orphelins": t.t("prop_orphelins"), "—": t.t("prop_na")}
-
-        cols = st.columns(4)
-        cols[0].metric(t.t("metric_color"), color_map.get(c, c))
-        cols[1].metric(t.t("metric_parity"), parity_map.get(get_parity(n), get_parity(n)))
-        cols[2].metric(t.t("metric_half"), half_map.get(get_half(n), get_half(n)))
-        cols[3].metric(t.t("metric_dozen"), dozen_map.get(get_dozen(n), get_dozen(n)))
-
-        cols2 = st.columns(3)
-        cols2[0].metric(t.t("metric_column"), col_map.get(get_column(n), get_column(n)))
-        cols2[1].metric(t.t("metric_section"), section_map.get(get_section(n), get_section(n)))
-        cols2[2].metric(t.t("metric_wheel_pos"), f"#{WHEEL_ORDER.index(n) + 1}/37")
-
-        st.markdown(f"**{t.t('neighbors_label')}**")
-        st.markdown(
-            f"`{neighbors[0]}` `{neighbors[1]}` "
-            f"**← `{n}` →** "
-            f"`{neighbors[2]}` `{neighbors[3]}`"
+    # ── Controls ──────────────────────────────────────────────────────
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        lookup = st.number_input(
+            t.t("roulette_lookup_label"),
+            min_value=0, max_value=36, value=17, step=1,
+            key="wheel_lookup",
+        )
+    with c2:
+        neighbor_count = st.slider(
+            "Neighbors each side",
+            min_value=1, max_value=5, value=2, step=1,
+            key="wheel_neighbors",
+        )
+    with c3:
+        opposite_spread = st.slider(
+            "Opposite zone spread",
+            min_value=0, max_value=3, value=1, step=1,
+            help="0 = just the 2 opposite numbers, 1-3 = +N neighbors around each",
+            key="wheel_opposite_spread",
         )
 
-        st.markdown(f"**{t.t('opposite_label')}:** `{opp[0]}`, `{opp[1]}`")
+    n = int(lookup)
+
+    # ── Highlighted wheel ─────────────────────────────────────────────
+    fig = build_wheel_figure_highlighted(
+        selected_number=n,
+        neighbor_count=neighbor_count,
+        opposite_spread=opposite_spread,
+        height=550,
+    )
+    st.plotly_chart(fig, width='stretch')
+
+    # ── Legend ────────────────────────────────────────────────────────
+    st.caption(
+        "⬜ **White border** = selected number  |  "
+        "🟡 **Gold border** = neighbors  |  "
+        "🔵 **Cyan border** = opposite zone"
+    )
+
+    # ── Number detail lookup ─────────────────────────────────────────
+    st.markdown("---")
+    st.subheader(t.t("roulette_lookup_title"))
+
+    c = get_color(n)
+    neighbors = get_neighbors(n, neighbor_count)
+    opp = get_opposite(n)
+    opp_zone = get_opposite_zone(n, opposite_spread)
+
+    color_map = {"green": t.t("prop_green"), "red": t.t("prop_red"), "black": t.t("prop_black")}
+    parity_map = {"even": t.t("prop_even"), "odd": t.t("prop_odd"), "—": t.t("prop_na")}
+    half_map = {"low (1-18)": t.t("prop_low"), "high (19-36)": t.t("prop_high"), "—": t.t("prop_na")}
+    dozen_map = {"1st 12": t.t("prop_dozen_1"), "2nd 12": t.t("prop_dozen_2"), "3rd 12": t.t("prop_dozen_3"), "—": t.t("prop_na")}
+    col_map = {"Column 1": t.t("prop_col_1"), "Column 2": t.t("prop_col_2"), "Column 3": t.t("prop_col_3"), "—": t.t("prop_na")}
+    section_map = {"Jeu 0": t.t("prop_jeu0"), "Voisins du Zéro": t.t("prop_voisins"), "Tiers du Cylindre": t.t("prop_tiers"), "Orphelins": t.t("prop_orphelins"), "—": t.t("prop_na")}
+
+    cols = st.columns(4)
+    cols[0].metric(t.t("metric_color"), color_map.get(c, c))
+    cols[1].metric(t.t("metric_parity"), parity_map.get(get_parity(n), get_parity(n)))
+    cols[2].metric(t.t("metric_half"), half_map.get(get_half(n), get_half(n)))
+    cols[3].metric(t.t("metric_dozen"), dozen_map.get(get_dozen(n), get_dozen(n)))
+
+    cols2 = st.columns(3)
+    cols2[0].metric(t.t("metric_column"), col_map.get(get_column(n), get_column(n)))
+    cols2[1].metric(t.t("metric_section"), section_map.get(get_section(n), get_section(n)))
+    cols2[2].metric(t.t("metric_wheel_pos"), f"#{WHEEL_ORDER.index(n) + 1}/37")
+
+    # ── Neighbors display ─────────────────────────────────────────────
+    st.markdown(f"**{t.t('neighbors_label')} ({neighbor_count} each side)**")
+    left_nbs = neighbors[:neighbor_count]
+    right_nbs = neighbors[neighbor_count:]
+    st.markdown(
+        " ".join(f"`{x}`" for x in left_nbs)
+        + f" **← `{n}` →** "
+        + " ".join(f"`{x}`" for x in right_nbs)
+    )
+
+    # ── Opposite zone display ────────────────────────────────────────
+    st.markdown(f"**{t.t('opposite_label')}:** `{opp[0]}`, `{opp[1]}`")
+    if opposite_spread > 0:
+        opp_sorted = sorted(opp_zone - {opp[0], opp[1]})
+        st.caption(
+            f"Opposite zone (+{opposite_spread} neighbors): "
+            + ", ".join(f"`{x}`" for x in opp_sorted)
+        )
 
 
 def _render_french_bets_tab(t):

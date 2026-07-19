@@ -24,10 +24,23 @@ if "lang" not in st.session_state:
     st.session_state.lang = "en"
 if "session_mgr" not in st.session_state:
     st.session_state.session_mgr = SessionManager("data/sessions.db")
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "tutorial"
 
 t = Translator()
 t.set_lang(st.session_state.lang)
 mgr: SessionManager = st.session_state.session_mgr
+
+# ── Navigation key → translated label ─────────────────────────────────
+NAV_KEYS = ["tutorial", "roulette", "poker", "portfolio", "history", "settings"]
+NAV_LABELS = {
+    "tutorial": t.t("nav_tutorial"),
+    "roulette": t.t("nav_roulette"),
+    "poker": t.t("nav_poker"),
+    "portfolio": t.t("nav_portfolio"),
+    "history": t.t("nav_history"),
+    "settings": t.t("nav_settings"),
+}
 
 # ── Sidebar ───────────────────────────────────────────────────────────
 st.sidebar.title("🎲 Betting Portfolio")
@@ -82,34 +95,37 @@ if sessions and "active_session_id" in st.session_state:
 st.sidebar.markdown("---")
 st.sidebar.metric(t.t("bankroll_label"), f"{st.session_state.bankroll:,.0f} zł")
 
-page = st.sidebar.radio(
+# Navigation — use selectbox with keys, not radio with translated strings
+current_nav_label = NAV_LABELS.get(st.session_state.nav_page, NAV_LABELS["tutorial"])
+selected_label = st.sidebar.selectbox(
     t.t("navigation_label"),
-    [
-        t.t("nav_tutorial"),
-        t.t("nav_roulette"),
-        t.t("nav_poker"),
-        t.t("nav_portfolio"),
-        t.t("nav_history"),
-        t.t("nav_settings"),
-    ],
+    [NAV_LABELS[k] for k in NAV_KEYS],
+    index=NAV_KEYS.index(st.session_state.nav_page),
+    label_visibility="visible",
 )
+# Map label back to key
+for k, v in NAV_LABELS.items():
+    if v == selected_label:
+        st.session_state.nav_page = k
+        break
 
 st.sidebar.markdown("---")
 st.sidebar.caption(t.t("app_tagline"))
 
 # ── Page routing ──────────────────────────────────────────────────────
 try:
-    if page == t.t("nav_tutorial"):
+    page_key = st.session_state.nav_page
+    if page_key == "tutorial":
         from ui.views.tutorial import show
-    elif page == t.t("nav_roulette"):
+    elif page_key == "roulette":
         from ui.views.roulette import show
-    elif page == t.t("nav_poker"):
+    elif page_key == "poker":
         from ui.views.poker import show
-    elif page == t.t("nav_portfolio"):
+    elif page_key == "portfolio":
         from ui.views.portfolio import show
-    elif page == t.t("nav_history"):
+    elif page_key == "history":
         from ui.views.history import show
-    elif page == t.t("nav_settings"):
+    elif page_key == "settings":
         from ui.views.settings import show
     show()
 except Exception as e:
